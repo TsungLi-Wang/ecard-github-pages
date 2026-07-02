@@ -6,6 +6,8 @@
 <title>電子賀卡寄送器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
+<!-- Google Identity Services for OAuth popup authorization -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -689,25 +691,39 @@
   <!-- 右側表單 -->
   <div class="form">
     <h1>電子賀卡寄送器</h1>
-    <!-- API 設定 -->
-    <div class="row single" style="margin-bottom:14px">
+
+    <!-- Google OAuth 授權區（取代舊的 Apps Script /exec） -->
+    <div class="row single" style="margin-bottom:12px; background:#fff9f0; padding:12px; border-radius:6px; border:1px solid #f0d9b0;">
       <div>
-        <label class="required">Apps Script Web App URL（/exec）</label>
+        <label class="required" style="color:#a22;">Google OAuth Client ID</label>
         <div class="file-row">
-          <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/XXXXXXXX/exec" oninput="updateApiStatus()">
-          <button type="button" class="file-btn" onclick="saveApiSetting()">保存</button>
-          <button type="button" class="file-btn" onclick="clearApiSetting()">清除</button>
-          <button type="button" class="file-btn ref-btn" onclick="openAuthPage()">開啟授權頁</button>
+          <input type="text" id="clientId" placeholder="你的-Google-Cloud-OAuth-Client-ID.apps.googleusercontent.com" style="flex:1; font-size:12px;">
+          <button type="button" class="file-btn" onclick="saveClientId()">保存</button>
+          <button type="button" class="file-btn" onclick="clearClientId()">清除</button>
         </div>
-        <div style="margin:4px 0 0; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <span id="apiStatus" style="font-size:11px; padding:1px 7px; border-radius:3px; background:#f0f0f0; color:#666; border:1px solid #e0e0e0;">未設定</span>
-          <span class="hint" style="margin:0;">此設定只存在你的這台瀏覽器。第一次使用前務必直接開「開啟授權頁」完成授權。</span>
+        <div style="margin-top:6px;">
+          <button type="button" id="authBtn" class="file-btn ref-btn" style="padding:10px 16px; font-weight:700; background:#4285f4; color:white; border:none;" onclick="authorizeWithGoogle()">
+            🔐 用 Google 帳號授權寄信
+          </button>
+          <span id="authStatus" style="margin-left:10px; font-size:13px; font-weight:600;"></span>
+        </div>
+        <div class="hint" style="margin-top:4px;">
+          這是新的流程：點按鈕跳 Google 彈窗授權（scope: gmail.send）。授權後即可直接在頁面寄信，無需再貼 /exec。
+          <a href="#" onclick="showOAuthHelp(); return false;" style="color:#c33;">如何取得 Client ID？</a>
         </div>
       </div>
     </div>
 
-    <div class="api-hint" style="margin:0 0 16px; font-size:12px;">
-      <strong>⚠️ 重要：</strong> 請先直接在新分頁打開你的 <code>/exec</code> 網址，完成 Google 授權（看到「剩餘配額」數字），再回來這裡貼上同一個網址使用。
+    <div id="oauthHelp" style="display:none; margin-bottom:16px; padding:10px; background:#f8f8f8; border-radius:4px; font-size:12px; line-height:1.5;">
+      <strong>快速取得 Client ID（一次設定）：</strong><br>
+      1. 去 <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a> 新增專案。<br>
+      2. 啟用「Gmail API」。<br>
+      3. 建立憑證 → OAuth 用戶端 ID（類型選「網頁應用程式」）。<br>
+      4. 在「已授權的 JavaScript 來源」加入：<br>
+      &nbsp;&nbsp;• <code>https://tsungli-wang.github.io</code><br>
+      &nbsp;&nbsp;• <code>http://localhost</code>（測試用）<br>
+      5. 複製 Client ID 貼回上方欄位並保存。<br>
+      第一次授權時用「測試使用者」即可（不需要審核）。
     </div>
 
     <!-- 1. 賀卡底圖 -->
@@ -870,9 +886,9 @@
     <div id="status"></div>
 
     <div style="margin-top:28px; padding-top:16px; border-top:1px solid #eee; font-size:11px; color:#888; line-height:1.5;">
-      這是靜態 GitHub Pages 前端。所有設定只存在你的瀏覽器。<br>
-      信件會從「你自己授權的 Google 帳號」寄出（使用該帳號的每日配額）。<br>
-      後端程式碼放在 <code>apps-script/</code> 資料夾，可自行複製重新部署。
+      這是靜態 GitHub Pages 前端。使用 Google 帳號直接授權（Gmail API）。<br>
+      信件從你自己授權的 Google 帳號寄出（使用該帳號配額）。<br>
+      舊版 Apps Script 程式碼仍保留在 <code>apps-script/</code> 供參考。
     </div>
   </div>
 </div>
@@ -931,8 +947,7 @@
 <!-- 用來合成圖片的隱藏 canvas -->
 <canvas id="composeCanvas" style="display:none;"></canvas>
 
-<!-- 隱藏 iframe 用來跨域 POST 給 Apps Script -->
-<iframe id="sendFrame" name="sendFrame" style="position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; border:0;" title="post helper"></iframe>
+<!-- No longer needed: direct Gmail API calls from browser after GIS authorization -->
 
 <script>
   var DEFAULT_PRESETS = [
@@ -973,7 +988,7 @@
   var recipients = [];
   var modalIndex = 0;
   var previewIndex = -1;
-  var pendingMap = {};
+  // pendingMap removed - now using direct Gmail API + GIS tokens
 
   function getDateStr() {
     var d = new Date();
@@ -1003,18 +1018,10 @@
     }
   });
 
-  window.addEventListener('message', function(ev) {
-    var d = ev.data;
-    if (!d || d.source !== 'ecard-appscript') return;
-    var p = pendingMap[d.requestId];
-    if (!p) return;
-    clearTimeout(p.timeout);
-    delete pendingMap[d.requestId];
-    p.resolve(d.result);
-  });
+  // Old postMessage listener removed (no longer using Apps Script cross-origin)
 
   window.addEventListener('DOMContentLoaded', function() {
-    loadApiSetting();
+    loadClientId();
     renderCardPresetOptions();
     renderMailPresetOptions();
     document.getElementById('previewDate').textContent = getDateStr();
@@ -1028,54 +1035,115 @@
     document.getElementById('newRecipientName').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') { e.preventDefault(); document.getElementById('newRecipientEmail').focus(); }
     });
+
+    // Initialize auth UI state
+    updateAuthUI();
   });
 
-  function loadApiSetting() {
+  // === 新的 Google OAuth (GIS) + Gmail API 流程 ===
+  let accessToken = null;
+  let currentUserEmail = null;
+  let tokenClient = null;
+
+  function loadClientId() {
     try {
-      var saved = localStorage.getItem('ecard_api_url_v1');
-      if (saved) {
-        document.getElementById('apiUrl').value = saved;
-      }
+      const saved = localStorage.getItem('ecard_gis_client_id_v1');
+      if (saved) document.getElementById('clientId').value = saved;
     } catch (e) {}
-    updateApiStatus();
+    updateAuthUI();
   }
-  function saveApiSetting() {
-    var val = (document.getElementById('apiUrl').value || '').trim();
-    try { localStorage.setItem('ecard_api_url_v1', val); } catch (e) {}
-    updateApiStatus();
-    var st = document.getElementById('status');
-    st.className = 'ok';
-    st.textContent = '已保存（本機儲存）';
-    st.style.display = 'block';
-    setTimeout(function(){ st.style.display = 'none'; }, 1400);
+
+  function saveClientId() {
+    const val = (document.getElementById('clientId').value || '').trim();
+    if (!val) { alert('請輸入 Client ID'); return; }
+    try { localStorage.setItem('ecard_gis_client_id_v1', val); } catch (e) {}
+    alert('Client ID 已保存（本機）');
+    updateAuthUI();
   }
-  function clearApiSetting() {
-    if (!confirm('確定清除已儲存的 Apps Script URL？')) return;
-    try { localStorage.removeItem('ecard_api_url_v1'); } catch (e) {}
-    document.getElementById('apiUrl').value = '';
-    updateApiStatus();
+
+  function clearClientId() {
+    if (!confirm('清除 Client ID？')) return;
+    try { localStorage.removeItem('ecard_gis_client_id_v1'); } catch (e) {}
+    document.getElementById('clientId').value = '';
+    updateAuthUI();
   }
-  function updateApiStatus() {
-    var el = document.getElementById('apiStatus');
-    if (!el) return;
-    var val = (document.getElementById('apiUrl').value || '').trim();
-    if (val && val.indexOf('/exec') > 0) {
-      el.textContent = '✓ 已設定';
-      el.style.background = '#e6f7ee';
-      el.style.color = '#1a5';
-      el.style.borderColor = '#a8e0b8';
+
+  function updateAuthUI() {
+    const statusEl = document.getElementById('authStatus');
+    const btn = document.getElementById('authBtn');
+    if (!statusEl || !btn) return;
+
+    if (accessToken && currentUserEmail) {
+      statusEl.innerHTML = `✅ 已授權 <strong>${currentUserEmail}</strong>`;
+      statusEl.style.color = '#1a5';
+      btn.textContent = '🔄 重新授權 / 切換帳號';
+      btn.style.background = '#34a853';
     } else {
-      el.textContent = '未設定';
-      el.style.background = '#f0f0f0';
-      el.style.color = '#666';
-      el.style.borderColor = '#e0e0e0';
+      statusEl.innerHTML = '尚未授權';
+      statusEl.style.color = '#c33';
+      btn.textContent = '🔐 用 Google 帳號授權寄信';
+      btn.style.background = '#4285f4';
     }
   }
-  function openAuthPage() {
-    var u = (document.getElementById('apiUrl').value || '').trim();
-    if (!u) { alert('請先貼上你的 Apps Script /exec 網址'); return; }
-    window.open(u, '_blank');
+
+  function authorizeWithGoogle() {
+    const clientId = (document.getElementById('clientId').value || '').trim();
+    if (!clientId) {
+      alert('請先輸入並保存你的 Google OAuth Client ID');
+      showOAuthHelp();
+      return;
+    }
+
+    if (typeof google === 'undefined' || !google.accounts) {
+      alert('Google 授權元件還在載入中，請稍等 1-2 秒再試一次');
+      return;
+    }
+
+    // Initialize GIS Token Client (for access token, popup flow)
+    if (!tokenClient) {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/gmail.send',
+        callback: (response) => {
+          if (response.access_token) {
+            accessToken = response.access_token;
+            fetchUserInfo(accessToken).then(email => {
+              currentUserEmail = email;
+              updateAuthUI();
+              const st = document.getElementById('status');
+              st.className = 'ok';
+              st.textContent = '✅ Google 授權成功！現在可以開始使用寄送功能。';
+              st.style.display = 'block';
+              setTimeout(() => { st.style.display = 'none'; }, 2500);
+            });
+          } else {
+            alert('授權失敗或被取消');
+          }
+        },
+      });
+    }
+
+    tokenClient.requestAccessToken({ prompt: 'consent' });
   }
+
+  async function fetchUserInfo(token) {
+    try {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      return data.email || '已授權使用者';
+    } catch (e) {
+      return '已授權使用者';
+    }
+  }
+
+  function showOAuthHelp() {
+    const el = document.getElementById('oauthHelp');
+    if (el) el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+  }
+
+  // (舊版 Apps Script 相容函式已移除)
 
   // === 賀卡文字罐頭 ===
   function loadPresets() {
@@ -1646,9 +1714,11 @@
   function openPreviewModal() {
     var senderName = document.getElementById('senderName').value.trim();
     var message = document.getElementById('messageBody').value;
-    var api = (document.getElementById('apiUrl').value || '').trim();
 
-    if (!api) { alert('請先填入 Apps Script Web App URL 並保存'); return; }
+    if (!accessToken) {
+      alert('請先點擊上方「用 Google 帳號授權寄信」完成 Google 授權');
+      return;
+    }
     if (recipients.length === 0) { alert('請先加入至少一位收件人'); return; }
     if (!imageData) { alert('請上傳賀卡圖片'); return; }
     if (!senderName) { alert('請填您的大名或公司名'); return; }
@@ -1702,7 +1772,7 @@
     if (modalIndex < recipients.length - 1) { modalIndex++; renderModalForIndex(); }
   }
 
-  // === 寄送（使用 postMessage 跨域機制） ===
+  // === 寄送（新的 Gmail API 直接發送，彈窗授權後） ===
   function doSendAll() {
     closePreviewModal();
     var sendBtn = document.getElementById('sendBtn');
@@ -1743,7 +1813,7 @@
     renderRecipients();
     document.getElementById('progressDetail').textContent = '(' + (idx + 1) + ' / ' + recipients.length + ') 寄給 ' + r.name + '...';
 
-    composeCardImage(r.name, function(composedDataUrl) {
+    composeCardImage(r.name, async function(composedDataUrl) {
       if (!composedDataUrl) {
         r.status = 'fail';
         r.error = '圖片合成失敗';
@@ -1752,64 +1822,115 @@
         return;
       }
 
-      var rawMailBody = document.getElementById('mailBody').value;
-      var rawSubject = document.getElementById('subject').value.trim();
-      var senderName = document.getElementById('senderName').value.trim();
-      var api = (document.getElementById('apiUrl').value || '').trim();
+      const rawMailBody = document.getElementById('mailBody').value;
+      const rawSubject = document.getElementById('subject').value.trim();
+      const senderName = document.getElementById('senderName').value.trim();
 
-      var payload = {
-        requestId: Date.now() + '-' + Math.random().toString(36).slice(2),
-        recipientName: r.name,
-        recipientEmail: r.email,
-        senderName: senderName,
-        subject: rawSubject ? replaceName(rawSubject, r.name) : '',
-        mailBody: replaceName(rawMailBody, r.name),
-        composedImageData: composedDataUrl,
-        layoutOrder: getLayoutOrder()
-      };
+      try {
+        const rawMime = buildRawMimeMessage(
+          r.email,
+          replaceName(rawSubject, r.name) || ('來自 ' + (senderName || '朋友') + ' 的賀卡'),
+          replaceName(rawMailBody, r.name),
+          composedDataUrl,
+          senderName,
+          getLayoutOrder()
+        );
 
-      submitToBackend(api, payload).then(function(res) {
-        if (res && res.success) r.status = 'ok';
-        else { r.status = 'fail'; r.error = (res && res.error) || '寄送失敗'; }
-        renderRecipients();
-        sendNext(idx + 1);
-      }).catch(function(err) {
+        const success = await sendViaGmailAPI(rawMime);
+        if (success) {
+          r.status = 'ok';
+        } else {
+          r.status = 'fail';
+          r.error = 'Gmail API 傳送失敗';
+        }
+      } catch (err) {
         r.status = 'fail';
         r.error = err.message || String(err);
-        renderRecipients();
-        sendNext(idx + 1);
-      });
+      }
+
+      renderRecipients();
+      sendNext(idx + 1);
     });
   }
 
-  function submitToBackend(apiUrl, payload) {
-    return new Promise(function(resolve, reject) {
-      if (!apiUrl) { reject(new Error('尚未設定 Apps Script URL')); return; }
+  // 建構 RFC 2822 MIME 郵件（含 inline 賀卡圖 + 文字內文）
+  function buildRawMimeMessage(toEmail, subject, mailBody, imageDataUrl, fromName, layoutOrder) {
+    const boundary = '----=EcCardBoundary' + Date.now();
+    const dateStr = new Date().toUTCString().replace(/GMT/, '+0000');
 
-      var rid = payload.requestId;
-      var t = setTimeout(function() {
-        if (pendingMap[rid]) {
-          delete pendingMap[rid];
-          reject(new Error('等待 Apps Script 回應逾時（90 秒）。請確認 URL、授權狀態與網路。'));
-        }
-      }, 90000);
+    // 解析圖片 dataURL
+    const imgMatch = imageDataUrl.match(/^data:(image\/(png|jpeg|gif));base64,(.+)$/);
+    const imgMime = imgMatch ? imgMatch[1] : 'image/png';
+    const imgBase64 = imgMatch ? imgMatch[3] : imageDataUrl.split(',')[1];
+    const imgExt = imgMime.includes('jpeg') ? 'jpg' : (imgMime.includes('gif') ? 'gif' : 'png');
 
-      pendingMap[rid] = { resolve: resolve, reject: reject, timeout: t };
+    // 處理內文 + 賀卡 HTML
+    const safeBody = (mailBody || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    const cardImgHtml = `<img src="cid:cardImage" style="display:block; width:100%; max-width:600px; height:auto; border:0;" alt="賀卡">`;
+    const bodyDiv = mailBody && mailBody.trim()
+      ? `<div style="font-size:15px; margin-bottom:20px; white-space:pre-wrap;">${safeBody}</div>`
+      : '';
 
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = apiUrl;
-      form.target = 'sendFrame';
-      form.style.display = 'none';
+    let htmlContent;
+    if (layoutOrder === 'cardFirst') {
+      htmlContent = `<div style="max-width:600px; margin:0 auto; font-family:'PingFang TC','Microsoft JhengHei',sans-serif; color:#333; line-height:1.7;">${cardImgHtml}${bodyDiv}</div>`;
+    } else {
+      htmlContent = `<div style="max-width:600px; margin:0 auto; font-family:'PingFang TC','Microsoft JhengHei',sans-serif; color:#333; line-height:1.7;">${bodyDiv}${cardImgHtml}</div>`;
+    }
 
-      var input = document.createElement('textarea');
-      input.name = 'payload';
-      input.value = JSON.stringify(payload);
-      form.appendChild(input);
-      document.body.appendChild(form);
-      form.submit();
-      setTimeout(function() { if (form.parentNode) form.parentNode.removeChild(form); }, 1200);
+    // 組 MIME
+    let mime = '';
+    mime += `MIME-Version: 1.0\r\n`;
+    mime += `Date: ${dateStr}\r\n`;
+    if (fromName) {
+      mime += `From: "${fromName}" <me>\r\n`;
+    } else {
+      mime += `From: <me>\r\n`;
+    }
+    mime += `To: ${toEmail}\r\n`;
+    mime += `Subject: ${subject}\r\n`;
+    mime += `Content-Type: multipart/related; boundary="${boundary}"\r\n\r\n`;
+
+    // 文字/HTML 部分
+    mime += `--${boundary}\r\n`;
+    mime += `Content-Type: text/html; charset="UTF-8"\r\n`;
+    mime += `Content-Transfer-Encoding: 7bit\r\n\r\n`;
+    mime += `${htmlContent}\r\n\r\n`;
+
+    // 內嵌圖片部分
+    mime += `--${boundary}\r\n`;
+    mime += `Content-Type: ${imgMime}\r\n`;
+    mime += `Content-Transfer-Encoding: base64\r\n`;
+    mime += `Content-ID: <cardImage>\r\n`;
+    mime += `Content-Disposition: inline; filename="card.${imgExt}"\r\n\r\n`;
+    mime += `${imgBase64}\r\n\r\n`;
+
+    mime += `--${boundary}--\r\n`;
+
+    // base64url 編碼 (Gmail API 要求)
+    return btoa(mime)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
+  async function sendViaGmailAPI(rawBase64Url) {
+    if (!accessToken) throw new Error('尚未 Google 授權');
+
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: rawBase64Url })
     });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error('Gmail API 錯誤: ' + errText);
+    }
+    return true;
   }
 
   function escapeHtml(str) {
