@@ -1,19 +1,40 @@
+/**
+ * 電子賀卡寄送 - Apps Script 後端（搭配 GitHub Pages 前端）
+ * 部署方式：Web App → Execute as: User accessing / Access: Anyone with Google account
+ * 記得先直接開 /exec 完成授權！
+ */
 function doGet() {
   var quotaText = '';
+  var authNote = '';
   try {
-    quotaText = '<p>目前帳號今日剩餘寄送配額：' + MailApp.getRemainingDailyQuota() + '</p>';
+    var quota = MailApp.getRemainingDailyQuota();
+    quotaText = '<p style="font-size:18px;margin:12px 0;">目前帳號今日剩餘寄送配額：<strong>' + quota + '</strong> 封</p>';
+    if (quota > 0) {
+      authNote = '<p style="color:#1a5;">✅ 已完成授權，現在可以回到 GitHub Pages 工具頁面輸入此網址開始使用。</p>';
+    }
   } catch (err) {
-    quotaText = '<p>尚未完成寄信授權：' + escapeHtml_(err.toString()) + '</p>';
+    quotaText = '<p style="color:#c33;">尚未完成寄信授權。</p>';
+    authNote = '<p style="margin-top:16px;">請點擊上方「Review Permissions」或重新整理本頁，依指示授權「寄送郵件」權限。</p>' +
+               '<p style="font-size:13px;color:#666;">授權完成後，配額數字會出現。然後關閉本頁，回到你的 GitHub Pages 電子賀卡工具，貼上本頁網址（/exec 結尾）即可使用。</p>';
   }
 
-  return HtmlService.createHtmlOutput(
-      '<!doctype html><meta charset="utf-8"><title>電子賀卡寄送 API</title>' +
-      '<style>body{font-family:system-ui,sans-serif;line-height:1.6;padding:32px;color:#222}</style>' +
-      '<h1>電子賀卡寄送 API</h1>' +
-      '<p>這個 Apps Script Web App 是 GitHub Pages 前端的寄信後端。</p>' +
-      '<p>第一次使用時，請先授權此應用程式寄信。</p>' +
-      quotaText)
-    .setTitle('電子賀卡寄送 API')
+  var html = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>電子賀卡寄送 — Apps Script 後端</title>' +
+    '<style>body{font-family:-apple-system,system-ui,"PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.7;padding:32px 20px;color:#222;max-width:620px;margin:0 auto;background:#f9f9f9}' +
+    'h1{font-size:22px;margin-bottom:8px}.card{background:#fff;border-radius:8px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}' +
+    'code{background:#f0f0f0;padding:2px 6px;border-radius:3px;font-size:90%}a{color:#c33}</style>' +
+    '<div class="card"><h1>電子賀卡寄送 API 後端</h1>' +
+    '<p>這個 Web App 是搭配 <strong>GitHub Pages 前端</strong> 使用的寄信服務。</p>' +
+    '<p><strong>使用流程：</strong></p>' +
+    '<ol style="padding-left:20px"><li>第一次請直接開啟本頁，完成 Google 授權（允許寄信）。</li>' +
+    '<li>授權成功後看到「剩餘配額」數字。</li>' +
+    '<li>複製本頁完整網址（結尾是 /exec）。</li>' +
+    '<li>打開 GitHub Pages 的電子賀卡工具頁面，貼上此網址，按「保存」。</li></ol>' +
+    quotaText + authNote +
+    '<p style="margin-top:24px;font-size:12px;color:#888">此 Apps Script 只會用你的配額寄信，不會存任何資料。部署時請確認「Execute as: User accessing」與「Access: Anyone with Google account」。</p></div>';
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle('電子賀卡寄送 — 請先授權')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 

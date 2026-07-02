@@ -1,6 +1,24 @@
-# 電子賀卡寄送器：GitHub Pages 遷移版
+# 電子賀卡寄送器（GitHub Pages 版）
+
+**像 Font-Awesome 工具一樣直接給別人用**：分享你的 GitHub Pages 網址，收件人/同事只要用**自己的** Apps Script 後端（/exec）就能寄信。
 
 日期：2026-07-02
+
+前端特色：
+- 左側即時預覽 + 拖曳區自動轉 AVIF/WebP → PNG
+- 罐頭文字可編輯保存
+- 收件人清單（支援批次貼上）+ 逐筆狀態
+- 賀卡圖合成（含 {name} 替換 + 寄件人 + 日期）
+- 信件版型（內文/賀卡誰在前）
+- 寄出前逐筆 modal 確認
+- 完全靜態，無後端 token 外洩
+
+## 架構
+- `docs/index.html`：GitHub Pages 靜態前端（單檔，方便 fork / 直接用）
+- `apps-script/Code.gs` + `appsscript.json`：寄信後端（MailApp）
+- 使用 `postMessage` + 隱藏 iframe 解決跨域問題
+
+信件永遠從**使用者的自己 Google 帳號**寄出。
 
 ## 架構
 
@@ -12,76 +30,98 @@
 
 前端呼叫後端採用「隱藏 iframe 表單提交 + `postMessage` 回傳結果」，用來避開 GitHub Pages 直接 `fetch()` Apps Script Web App 常見的 CORS 問題。
 
-## 今天部署步驟
+## 快速上線步驟
 
-### 1. 建立或更新 Apps Script 後端
+### 1. 準備後端（Apps Script）
 
-1. 到 Apps Script 建立專案。
-2. 把 `apps-script/Code.gs` 貼到 Apps Script 的 `Code.gs`。
-3. 在專案設定中勾選顯示 `appsscript.json`。
-4. 把 `apps-script/appsscript.json` 貼到 Apps Script 的 manifest。
-5. 點 `Deploy` -> `New deployment`。
-6. Type 選 `Web app`。
-7. `Execute as` 選 `User accessing the web app`。
-8. `Who has access` 先選你要測試的範圍：
-   - 公司內部：選網域內使用者。
-   - 今天先快速測外部 Google 帳號：可先選 anyone with Google account。
-9. 部署後複製 `/exec` 結尾的 Web App URL。
+1. 新開一個 Apps Script 專案。
+2. 複製 `apps-script/Code.gs` 全部貼上。
+3. 開啟「顯示 appsscript.json」，把 `apps-script/appsscript.json` 內容貼上。
+4. 部署 → Web 應用程式：
+   - **執行身份**：存取應用程式的使用者
+   - **誰可以存取**：有 Google 帳戶的任何人（或公司網域）
+5. 複製 `/exec` 結尾的網址。
 
-### 2. 先完成使用者授權
+### 2. 第一次使用一定要先授權
 
-每個要寄信的使用者第一次使用前，先直接打開 Apps Script Web App URL。
+**每個要寄信的人**都要做這一步：
 
-看到「電子賀卡寄送 API」頁面，並能看到今日剩餘配額，就代表授權完成。
+- 直接在新分頁打開上面拿到的 `/exec` 網址。
+- 完成 Google 授權（允許寄送郵件）。
+- 看到「剩餘配額」數字後就可以關閉。
 
-如果沒有先完成授權，GitHub Pages 前端送信時，授權畫面可能被藏在 iframe 裡，使用者會覺得像是沒有反應。
+> 如果只從 Pages 點寄送，授權畫面很容易被 iframe 藏住，造成「沒反應」。
 
-### 3. 發布 GitHub Pages
+### 3. 發布到 GitHub Pages
 
-把整個 `ecard-github-pages` 資料夾推到 GitHub repo。
+```bash
+git add .
+git commit -m "chore: ready for launch"
+git push -u origin main
+```
 
-GitHub repo 設定：
+然後去 repo **Settings → Pages**：
+- Source: **Deploy from a branch**
+- Branch: `main`
+- Folder: `/docs`
+儲存後等 1~2 分鐘，得到公開網址。
 
-1. 到 repo 的 `Settings`。
-2. 進 `Pages`。
-3. Source 選 `Deploy from a branch`。
-4. Branch 選 `main`。
-5. Folder 選 `/docs`。
-6. 儲存後等待 GitHub Pages 產生網址。
+（本 repo 已經設定好 `/docs` 作為發布來源。）
 
-### 4. 設定前端
+### 4. 使用
 
-1. 開啟 GitHub Pages 網址。
-2. 在「Apps Script Web App URL」貼上剛才的 `/exec` URL。
-3. 按「保存 API 設定」。
-4. 上傳賀卡底圖、加入收件人、填寫賀卡文字與信件內容。
-5. 先按「寄出前預覽」。
-6. 再按「批次寄出」。
+1. 打開 Pages 網址。
+2. 最上方貼上你的 `/exec` → 點「保存」。
+3. （建議）點「開啟授權頁」再確認一次。
+4. 上傳賀卡底圖 → 加入收件人 → 填文字或選罐頭 → 選版型。
+5. 「逐筆預覽 & 寄出」檢查每位收件人 → 確認寄出。
+
+所有偏好設定只存在本機。
+
+## 給別人使用
+
+- 你可以把 **Pages 網址** 直接分享給同事/客戶。
+- 他們只要：
+  1. 自己部署一次 Apps Script 取得 `/exec`
+  2. 打開你的 Pages 網址
+  3. 貼上自己的 `/exec` 並先開啟授權
+- 就不用給他們原始碼或權限。
 
 ## 測試建議
 
-先用 1 位自己的測試收件人測：
+先用自己 Email 測 1 筆，確認：
+- 寄件人顯示名稱正確
+- 信件 HTML 內文與圖片順序
+- 圖片在 Gmail / Apple Mail / Outlook 都能正常顯示
+- 配額有正確扣除
 
-- 收件人是否收到信。
-- From 是否為授權中的 Google 帳號。
-- 寄件顯示名稱是否正確。
-- HTML 信件內文與賀卡圖片順序是否正確。
-- 圖片是否能在 Gmail、Apple Mail、Outlook 中顯示。
+再試 2~3 位不同收件人，驗證逐筆狀態更新。
 
-再測 2 到 3 位收件人，確認逐筆寄送結果會回到前端。
+## 常見問題（FAQ）
 
-## 目前限制
+**Q: 按寄送後完全沒反應？**  
+A: 99% 是還沒直接開 `/exec` 做過授權。請先直接在新分頁打開你的 `/exec` URL 完成 Google 授權，再回來試。
 
-- 第一次授權請先直接開 Apps Script URL，不要只從 GitHub Pages 按寄送。
-- 這版尚未加入 Google Sheet 寄送紀錄。
-- 這版尚未加入使用者白名單。
-- 這版尚未加入每批上限，正式給多人使用前建議補上。
-- `name` 是寄件顯示名稱，不會任意更改真正 From email。
+**Q: 圖片在信件裡顯示不出來？**  
+A: 確認使用 PNG / JPG / GIF（工具已限制）。AVIF/WebP/HEIC 即使轉檔也建議測試特定客戶端。圖片建議控制在 1~2MB 內。
 
-## 後續優先更新
+**Q: 今天寄信配額用完了？**  
+A: Google 個人帳戶每日約 100 封（依帳號而定）。公司 Workspace 額度較高。配額歸零就要等隔天。
 
-1. 加 Google Sheet 寄送紀錄。
-2. 加使用者白名單與網域限制。
-3. 加每批收件人上限。
-4. 加「目前授權帳號」提示，讓使用者知道信會從哪個帳號寄出。
-5. 若要公開給公司外多人長期使用，再評估 OAuth 驗證、Cloudflare Worker proxy 或正式後端。
+**Q: 想讓多個同事共用同一個後端？**  
+A: 可以，但要小心配額與發信身份。目前設計是「每人用自己的後端」最乾淨。
+
+**Q: 如何更新這個工具？**  
+A: Pull 最新 code → `git push` → Pages 會自動更新。
+
+**Q: 想記錄寄送紀錄？**  
+A: 目前版本沒有。後續可串 Google Sheet。
+
+## 目前限制與後續
+
+- 無寄送紀錄表
+- 無白名單 / 批次上限保護
+- 建議正式給多人用前加上這些限制
+
+歡迎 fork 改進後 PR！
+後續優先項目：Sheet 紀錄、白名單、顯示目前授權帳號。
