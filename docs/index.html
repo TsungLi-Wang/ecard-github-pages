@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>電子賀卡寄送器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;700&family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #f4f5f7;
+      color: #24272c;
+    }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    .app {
+      width: min(1240px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.25fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid #dde0e5;
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .preview-panel {
+      position: sticky;
+      top: 16px;
+    }
+    .preview-card {
+      position: relative;
+      width: 100%;
+      min-height: 420px;
+      background: #ebeef2;
+      border: 1px solid #d5d9df;
+      border-radius: 6px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview-card.empty { aspect-ratio: 3 / 4; color: #858b95; }
+    .preview-card img { width: 100%; height: auto; display: block; }
+    .preview-message-area {
+      position: absolute;
+      inset: 8% 8% auto;
+      pointer-events: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.7;
+    }
+    .preview-sender {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      bottom: 8%;
+      text-align: right;
+      pointer-events: none;
+    }
+    .muted { color: #707782; }
+    .small { font-size: 12px; }
+    .section {
+      border-top: 1px solid #eceff3;
+      padding-top: 16px;
+      margin-top: 16px;
+    }
+    .section:first-child {
+      border-top: 0;
+      padding-top: 0;
+      margin-top: 0;
+    }
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.75fr 0.75fr;
+      gap: 10px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #4d5562;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid #cfd5dd;
+      border-radius: 6px;
+      background: #fff;
+      padding: 9px 10px;
+      color: #24272c;
+    }
+    textarea {
+      min-height: 116px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: 2px solid #f1b8b8;
+      border-color: #b93636;
+    }
+    .btn {
+      border: 1px solid #c9ced6;
+      background: #fff;
+      color: #252a31;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-weight: 700;
+    }
+    .btn:hover { background: #f3f5f7; }
+    .btn.primary {
+      border-color: #a72e2e;
+      background: #b93636;
+      color: #fff;
+    }
+    .btn.primary:hover { background: #9f2b2b; }
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .recipient-list {
+      margin-top: 10px;
+      border: 1px solid #e2e6eb;
+      border-radius: 6px;
+      overflow: hidden;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .recipient-item {
+      display: grid;
+      grid-template-columns: minmax(80px, 0.7fr) minmax(160px, 1.3fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px;
+      border-bottom: 1px solid #edf0f3;
+      font-size: 13px;
+    }
+    .recipient-item:last-child { border-bottom: 0; }
+    .recipient-item.active { background: #f6eeee; }
+    .recipient-email { color: #59616d; word-break: break-all; }
+    .status-ok { color: #16834a; font-weight: 700; }
+    .status-fail { color: #b93636; font-weight: 700; }
+    .status-send { color: #1f65a6; font-weight: 700; }
+    .status-box {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      display: none;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .status-box.info { display: block; background: #eaf3ff; color: #1f5f9e; }
+    .status-box.ok { display: block; background: #e8f6ee; color: #167345; }
+    .status-box.err { display: block; background: #fdecec; color: #a72e2e; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 40;
+      background: rgba(18, 22, 28, 0.62);
+    }
+    .modal.visible { display: flex; }
+    .modal-box {
+      width: min(680px, 100%);
+      max-height: 92vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .modal-img {
+      width: 100%;
+      border: 1px solid #dde2e8;
+      border-radius: 6px;
+      display: block;
+      margin: 12px 0;
+    }
+    .progress {
+      height: 10px;
+      background: #edf0f3;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      background: #b93636;
+      transition: width 0.2s;
+    }
+    iframe[name="sendFrame"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .preview-panel { position: static; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="topbar">
+      <div>
+        <h1>電子賀卡寄送器</h1>
+        <div class="muted small">GitHub Pages 前端 + Apps Script MailApp 後端</div>
+      </div>
+      <button class="btn" id="saveSettingsBtn" type="button">保存 API 設定</button>
+    </div>
+
+    <div class="shell">
+      <section class="panel preview-panel">
+        <div class="preview-card empty" id="previewCard">
+          <span id="previewPlaceholder">尚未上傳賀卡底圖</span>
+          <img id="previewImage" alt="" hidden>
+          <div class="preview-message-area" id="previewMessage"></div>
+          <div class="preview-sender" id="previewSender"></div>
+        </div>
+        <div class="small muted" id="previewLabel" style="margin-top:10px;text-align:center;">預覽圖</div>
+        <canvas id="composeCanvas" hidden></canvas>
+        <div id="statusBox" class="status-box"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section">
+          <h2 class="section-title">1. API 與寄件身分</h2>
+          <label for="apiUrl">Apps Script Web App URL</label>
+          <input id="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+          <div class="small muted" style="margin-top:6px;">使用者第一次寄送時會被 Google 要求授權，信會從授權中的 Google 帳號寄出。</div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">2. 賀卡底圖與文字</h2>
+          <label for="imageInput">賀卡底圖</label>
+          <input id="imageInput" type="file" accept="image/png,image/jpeg,image/gif">
+          <div class="grid-3" style="margin-top:10px;">
+            <div>
+              <label for="fontFamily">字體</label>
+              <select id="fontFamily">
+                <option value="'Noto Serif TC', serif">思源宋體</option>
+                <option value="'Noto Sans TC', sans-serif">思源黑體</option>
+                <option value="'LXGW WenKai TC', cursive">霞鶩文楷</option>
+              </select>
+            </div>
+            <div>
+              <label for="fontSize">字級</label>
+              <input id="fontSize" type="number" value="18" min="10" max="48">
+            </div>
+            <div>
+              <label for="fontColor">顏色</label>
+              <input id="fontColor" type="color" value="#000000">
+            </div>
+          </div>
+          <label for="cardMessage" style="margin-top:10px;">賀卡文字</label>
+          <textarea id="cardMessage" placeholder="親愛的 {name}，祝您平安順心、萬事如意。"></textarea>
+          <div class="small muted">支援 <code>{name}</code>，寄送時會替換成各收件人姓名。</div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">3. 收件人</h2>
+          <div class="grid-2">
+            <div>
+              <label for="newName">姓名</label>
+              <input id="newName" type="text" placeholder="王小美">
+            </div>
+            <div>
+              <label for="newEmail">Email</label>
+              <input id="newEmail" type="email" placeholder="client@example.com">
+            </div>
+          </div>
+          <div class="row-actions" style="margin-top:8px;">
+            <button class="btn" id="addRecipientBtn" type="button">加入收件人</button>
+            <button class="btn" id="clearRecipientsBtn" type="button">清空</button>
+          </div>
+          <label for="bulkRecipients" style="margin-top:12px;">批次貼上</label>
+          <textarea id="bulkRecipients" placeholder="每行一筆：姓名,email&#10;例如：&#10;王小美,client1@example.com&#10;陳先生,client2@example.com"></textarea>
+          <div class="row-actions" style="margin-top:8px;">
+            <button class="btn" id="importRecipientsBtn" type="button">匯入批次名單</button>
+            <span class="small muted" id="recipientCount">0 位收件人</span>
+          </div>
+          <div class="recipient-list" id="recipientList"></div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">4. 信件內容</h2>
+          <div class="grid-2">
+            <div>
+              <label for="senderName">寄件顯示名稱</label>
+              <input id="senderName" type="text" placeholder="王小明 / 公司名稱">
+            </div>
+            <div>
+              <label for="subject">主旨</label>
+              <input id="subject" type="text" placeholder="來自 {name} 的賀卡">
+            </div>
+          </div>
+          <label for="mailBody" style="margin-top:10px;">信件內文</label>
+          <textarea id="mailBody" placeholder="{name} 您好：&#10;&#10;附上一張賀卡，祝您一切順心。"></textarea>
+          <label for="layoutOrder" style="margin-top:10px;">信件版型</label>
+          <select id="layoutOrder">
+            <option value="bodyFirst">內文在前，賀卡在後</option>
+            <option value="cardFirst">賀卡在前，內文在後</option>
+          </select>
+        </div>
+
+        <div class="section">
+          <div class="row-actions">
+            <button class="btn" id="openPreviewBtn" type="button">寄出前預覽</button>
+            <button class="btn primary" id="sendAllBtn" type="button">批次寄出</button>
+          </div>
+          <div class="progress" aria-hidden="true">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal" id="previewModal">
+    <div class="modal-box">
+      <h2 class="section-title" style="font-size:18px;">寄出前預覽</h2>
+      <div class="small muted" id="modalMeta"></div>
+      <img class="modal-img" id="modalImage" alt="合成後賀卡預覽">
+      <div class="row-actions" style="justify-content:space-between;">
+        <button class="btn" id="modalPrevBtn" type="button">上一筆</button>
+        <button class="btn" id="modalCloseBtn" type="button">關閉</button>
+        <button class="btn" id="modalNextBtn" type="button">下一筆</button>
+      </div>
+    </div>
+  </div>
+
+  <iframe name="sendFrame" id="sendFrame" title="send frame"></iframe>
+
+  <script>
+    const state = {
+      imageData: null,
+      imageSize: null,
+      recipients: [],
+      activeIndex: 0,
+      modalIndex: 0,
+      pending: new Map()
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const storageKey = 'ecardGithubPagesSettings_v1';
+
+    function init() {
+      loadSettings();
+      bindEvents();
+      renderRecipients();
+      updatePreview();
+      window.addEventListener('message', handleBackendMessage);
+    }
+
+    function bindEvents() {
+      $('saveSettingsBtn').addEventListener('click', saveSettings);
+      $('imageInput').addEventListener('change', handleImageFile);
+      ['fontFamily', 'fontSize', 'fontColor', 'cardMessage', 'senderName'].forEach((id) => {
+        $(id).addEventListener('input', updatePreview);
+        $(id).addEventListener('change', updatePreview);
+      });
+      $('addRecipientBtn').addEventListener('click', addRecipientFromInputs);
+      $('clearRecipientsBtn').addEventListener('click', clearRecipients);
+      $('importRecipientsBtn').addEventListener('click', importRecipients);
+      $('openPreviewBtn').addEventListener('click', openPreviewModal);
+      $('sendAllBtn').addEventListener('click', sendAll);
+      $('modalCloseBtn').addEventListener('click', () => $('previewModal').classList.remove('visible'));
+      $('modalPrevBtn').addEventListener('click', () => changeModalIndex(-1));
+      $('modalNextBtn').addEventListener('click', () => changeModalIndex(1));
+      ['newName', 'newEmail'].forEach((id) => $(id).addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') addRecipientFromInputs();
+      }));
+    }
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        $('apiUrl').value = saved.apiUrl || '';
+      } catch (err) {}
+    }
+
+    function saveSettings() {
+      localStorage.setItem(storageKey, JSON.stringify({ apiUrl: $('apiUrl').value.trim() }));
+      showStatus('ok', 'API 設定已保存。');
+    }
+
+    function handleImageFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      if (!/^image\/(png|jpeg|gif)$/.test(file.type)) {
+        showStatus('err', '目前只支援 PNG、JPG、GIF。');
+        event.target.value = '';
+        return;
+      }
+      if (file.size > 8 * 1024 * 1024) {
+        showStatus('err', '圖片請控制在 8MB 以內。');
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          state.imageData = reader.result;
+          state.imageSize = { width: img.naturalWidth, height: img.naturalHeight };
+          updatePreview();
+          showStatus('ok', '賀卡底圖已載入。');
+        };
+        img.onerror = () => showStatus('err', '圖片讀取失敗。');
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addRecipientFromInputs() {
+      const name = $('newName').value.trim();
+      const email = $('newEmail').value.trim();
+      if (!addRecipient(name, email)) return;
+      $('newName').value = '';
+      $('newEmail').value = '';
+      $('newName').focus();
+    }
+
+    function importRecipients() {
+      const lines = $('bulkRecipients').value.split(/\r?\n/);
+      let added = 0;
+      for (const line of lines) {
+        const raw = line.trim();
+        if (!raw) continue;
+        const parts = raw.includes(',') ? raw.split(',') : raw.split(/\s+/);
+        const name = (parts[0] || '').trim();
+        const email = (parts[1] || '').trim();
+        if (addRecipient(name, email, false)) added += 1;
+      }
+      renderRecipients();
+      updatePreview();
+      showStatus(added ? 'ok' : 'err', added ? `已匯入 ${added} 位收件人。` : '沒有匯入任何有效收件人。');
+    }
+
+    function addRecipient(name, email, render = true) {
+      if (!name || !email) {
+        showStatus('err', '請填姓名與 Email。');
+        return false;
+      }
+      if (!isValidEmail(email)) {
+        showStatus('err', `Email 格式錯誤：${email}`);
+        return false;
+      }
+      if (state.recipients.some((item) => item.email.toLowerCase() === email.toLowerCase())) {
+        showStatus('err', `收件人已存在：${email}`);
+        return false;
+      }
+      state.recipients.push({ name, email, status: '', error: '' });
+      if (render) {
+        renderRecipients();
+        updatePreview();
+      }
+      return true;
+    }
+
+    function clearRecipients() {
+      if (state.recipients.length && !confirm('確定清空所有收件人？')) return;
+      state.recipients = [];
+      state.activeIndex = 0;
+      renderRecipients();
+      updatePreview();
+    }
+
+    function renderRecipients() {
+      $('recipientCount').textContent = `${state.recipients.length} 位收件人`;
+      if (!state.recipients.length) {
+        $('recipientList').innerHTML = '<div class="recipient-item"><span class="muted">尚未加入收件人</span><span></span><span></span></div>';
+        return;
+      }
+      $('recipientList').innerHTML = state.recipients.map((item, index) => {
+        const status = item.status === 'ok'
+          ? '<span class="status-ok">已寄出</span>'
+          : item.status === 'fail'
+            ? `<span class="status-fail" title="${escapeAttr(item.error)}">失敗</span>`
+            : item.status === 'sending'
+              ? '<span class="status-send">寄送中</span>'
+              : '<span class="muted">待寄</span>';
+        return `<div class="recipient-item ${index === state.activeIndex ? 'active' : ''}" data-index="${index}">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span class="recipient-email">${escapeHtml(item.email)}</span>
+          ${status}
+        </div>`;
+      }).join('');
+      document.querySelectorAll('.recipient-item[data-index]').forEach((el) => {
+        el.addEventListener('click', () => {
+          state.activeIndex = Number(el.dataset.index);
+          renderRecipients();
+          updatePreview();
+        });
+      });
+    }
+
+    function getActiveRecipientName() {
+      if (!state.recipients.length) return '{name}';
+      return state.recipients[Math.min(state.activeIndex, state.recipients.length - 1)].name;
+    }
+
+    function updatePreview() {
+      const card = $('previewCard');
+      const img = $('previewImage');
+      if (state.imageData) {
+        card.classList.remove('empty');
+        $('previewPlaceholder').hidden = true;
+        img.hidden = false;
+        img.src = state.imageData;
+      } else {
+        card.classList.add('empty');
+        $('previewPlaceholder').hidden = false;
+        img.hidden = true;
+      }
+
+      const name = getActiveRecipientName();
+      const message = replaceName($('cardMessage').value || '親愛的 {name}，祝您平安順心、萬事如意。', name);
+      $('previewMessage').textContent = state.imageData ? message : '';
+      $('previewMessage').style.fontFamily = $('fontFamily').value;
+      $('previewMessage').style.fontSize = `${Number($('fontSize').value || 18)}px`;
+      $('previewMessage').style.color = $('fontColor').value;
+
+      const sender = $('senderName').value.trim();
+      $('previewSender').textContent = state.imageData && sender ? `${sender}  ${getDateStr()}` : '';
+      $('previewSender').style.fontFamily = $('fontFamily').value;
+      $('previewSender').style.color = $('fontColor').value;
+
+      $('previewLabel').textContent = state.recipients.length
+        ? `預覽圖：${escapePlain(name)}`
+        : '預覽圖';
+    }
+
+    async function openPreviewModal() {
+      const error = validateBeforeSend(false);
+      if (error) {
+        showStatus('err', error);
+        return;
+      }
+      state.modalIndex = 0;
+      await renderModal();
+      $('previewModal').classList.add('visible');
+    }
+
+    async function changeModalIndex(delta) {
+      state.modalIndex = Math.max(0, Math.min(state.recipients.length - 1, state.modalIndex + delta));
+      await renderModal();
+    }
+
+    async function renderModal() {
+      const recipient = state.recipients[state.modalIndex];
+      const dataUrl = await composeCardImage(recipient.name);
+      $('modalImage').src = dataUrl;
+      $('modalMeta').textContent = `${state.modalIndex + 1} / ${state.recipients.length}：${recipient.name} <${recipient.email}>`;
+      $('modalPrevBtn').disabled = state.modalIndex === 0;
+      $('modalNextBtn').disabled = state.modalIndex >= state.recipients.length - 1;
+    }
+
+    async function sendAll() {
+      const error = validateBeforeSend(true);
+      if (error) {
+        showStatus('err', error);
+        return;
+      }
+      saveSettings();
+      $('sendAllBtn').disabled = true;
+      $('openPreviewBtn').disabled = true;
+      $('progressBar').style.width = '0%';
+      showStatus('info', '準備寄送...');
+
+      state.recipients.forEach((recipient) => {
+        recipient.status = '';
+        recipient.error = '';
+      });
+      renderRecipients();
+
+      let ok = 0;
+      for (let index = 0; index < state.recipients.length; index += 1) {
+        const recipient = state.recipients[index];
+        recipient.status = 'sending';
+        state.activeIndex = index;
+        renderRecipients();
+        updatePreview();
+        showStatus('info', `正在寄送 ${index + 1} / ${state.recipients.length}：${recipient.name}`);
+
+        try {
+          const composedImageData = await composeCardImage(recipient.name);
+          const payload = buildPayload(recipient, composedImageData);
+          const result = await submitToAppsScript(payload);
+          if (result && result.success) {
+            recipient.status = 'ok';
+            ok += 1;
+          } else {
+            recipient.status = 'fail';
+            recipient.error = result && result.error ? result.error : '未知錯誤';
+          }
+        } catch (err) {
+          recipient.status = 'fail';
+          recipient.error = err.message || String(err);
+        }
+        $('progressBar').style.width = `${Math.round(((index + 1) / state.recipients.length) * 100)}%`;
+        renderRecipients();
+      }
+
+      $('sendAllBtn').disabled = false;
+      $('openPreviewBtn').disabled = false;
+      showStatus(ok === state.recipients.length ? 'ok' : 'err', `寄送完成：${ok} / ${state.recipients.length} 成功。`);
+    }
+
+    function validateBeforeSend(requireApi) {
+      if (requireApi && !$('apiUrl').value.trim()) return '請先填入 Apps Script Web App URL。';
+      if (!state.imageData) return '請先上傳賀卡底圖。';
+      if (!state.recipients.length) return '請先加入至少一位收件人。';
+      if (!$('senderName').value.trim()) return '請填寄件顯示名稱。';
+      if (!$('cardMessage').value.trim()) return '請填賀卡文字。';
+      return '';
+    }
+
+    function buildPayload(recipient, composedImageData) {
+      const subjectRaw = $('subject').value.trim();
+      const senderName = $('senderName').value.trim();
+      return {
+        requestId: makeId(),
+        recipientName: recipient.name,
+        recipientEmail: recipient.email,
+        senderName,
+        subject: subjectRaw ? replaceName(subjectRaw, recipient.name) : '',
+        mailBody: replaceName($('mailBody').value, recipient.name),
+        composedImageData,
+        layoutOrder: $('layoutOrder').value
+      };
+    }
+
+    function submitToAppsScript(payload) {
+      const apiUrl = $('apiUrl').value.trim();
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          state.pending.delete(payload.requestId);
+          reject(new Error('等待 Apps Script 回應逾時，請確認 Web App URL 與授權狀態。'));
+        }, 90000);
+        state.pending.set(payload.requestId, { resolve, reject, timeout });
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = apiUrl;
+        form.target = 'sendFrame';
+        form.style.display = 'none';
+
+        const input = document.createElement('textarea');
+        input.name = 'payload';
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+        setTimeout(() => form.remove(), 1000);
+      });
+    }
+
+    function handleBackendMessage(event) {
+      const data = event.data;
+      if (!data || data.source !== 'ecard-appscript') return;
+      const pending = state.pending.get(data.requestId);
+      if (!pending) return;
+      clearTimeout(pending.timeout);
+      state.pending.delete(data.requestId);
+      pending.resolve(data.result);
+    }
+
+    function composeCardImage(recipientName) {
+      return new Promise((resolve, reject) => {
+        if (!state.imageData) {
+          reject(new Error('尚未載入圖片'));
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          const maxWidth = 1600;
+          const scale = img.naturalWidth > maxWidth ? maxWidth / img.naturalWidth : 1;
+          const width = Math.round(img.naturalWidth * scale);
+          const height = Math.round(img.naturalHeight * scale);
+          const canvas = $('composeCanvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const previewWidth = Math.max(320, $('previewCard').getBoundingClientRect().width || 520);
+          const fontSize = Math.max(10, Math.round((Number($('fontSize').value || 18) / previewWidth) * width));
+          const fontFamily = $('fontFamily').value;
+          const fontColor = $('fontColor').value;
+          const paddingX = Math.round(width * 0.08);
+          const topY = Math.round(height * 0.08);
+          const maxTextWidth = width - paddingX * 2;
+
+          ctx.font = `${fontSize}px ${fontFamily}`;
+          ctx.fillStyle = fontColor;
+          ctx.textBaseline = 'top';
+          const message = replaceName($('cardMessage').value, recipientName);
+          const lines = wrapText(ctx, message, maxTextWidth);
+          const lineHeight = Math.round(fontSize * 1.7);
+          lines.forEach((line, index) => ctx.fillText(line, paddingX, topY + index * lineHeight));
+
+          const sender = $('senderName').value.trim();
+          if (sender) {
+            const senderSize = Math.max(10, Math.round((14 / previewWidth) * width));
+            const dateSize = Math.max(9, Math.round(senderSize * 0.78));
+            const bottomY = height - Math.round(height * 0.08);
+            ctx.textBaseline = 'alphabetic';
+            ctx.font = `${senderSize}px ${fontFamily}`;
+            const senderWidth = ctx.measureText(sender).width;
+            ctx.font = `${dateSize}px ${fontFamily}`;
+            const date = getDateStr();
+            const dateWidth = ctx.measureText(date).width;
+            let x = width - paddingX - senderWidth - 8 - dateWidth;
+            ctx.font = `${senderSize}px ${fontFamily}`;
+            ctx.fillStyle = fontColor;
+            ctx.fillText(sender, x, bottomY);
+            x += senderWidth + 8;
+            ctx.font = `${dateSize}px ${fontFamily}`;
+            ctx.fillStyle = '#666666';
+            ctx.fillText(date, x, bottomY);
+          }
+
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject(new Error('圖片合成失敗'));
+        img.src = state.imageData;
+      });
+    }
+
+    function wrapText(ctx, text, maxWidth) {
+      const lines = [];
+      String(text || '').split('\n').forEach((paragraph) => {
+        if (!paragraph) {
+          lines.push('');
+          return;
+        }
+        let line = '';
+        for (const char of paragraph) {
+          const test = line + char;
+          if (ctx.measureText(test).width > maxWidth && line) {
+            lines.push(line);
+            line = char;
+          } else {
+            line = test;
+          }
+        }
+        if (line) lines.push(line);
+      });
+      return lines;
+    }
+
+    function replaceName(text, name) {
+      return String(text || '').replace(/\{name\}/g, name || '');
+    }
+
+    function getDateStr() {
+      const d = new Date();
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function makeId() {
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = String(value || '');
+      return div.innerHTML;
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/"/g, '&quot;');
+    }
+
+    function escapePlain(value) {
+      return String(value || '');
+    }
+
+    function showStatus(type, message) {
+      const box = $('statusBox');
+      box.className = `status-box ${type}`;
+      box.textContent = message;
+    }
+
+    init();
+  </script>
+</body>
+</html>
